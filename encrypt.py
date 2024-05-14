@@ -8,7 +8,7 @@ def write_key(key, file_name):
     with open(file_name, 'wb') as filekey:
         filekey.write(key)
 
-write_key(key, 'my_key.key')
+write_key(key, 'key.txt')
 
 # Encrypting a file
 
@@ -18,7 +18,7 @@ def load_key(file_name):
         key = filekey.read()
     return key
 
-key = load_key('my_key.key')
+key = load_key('key.txt')
 print(key)
 
 # Using the generated key
@@ -51,7 +51,7 @@ with open ('Linux for Beginners.enc', 'wb') as encrypted_file:
 # Decrypt the encrypted file
 
 # Using the key
-key = load_key('my_key.key')
+key = load_key('key.txt')
 f = Fernet(key)
 
 # Opening the encrypted file
