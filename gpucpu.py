@@ -1,4 +1,4 @@
-from numba import jit
+from numba import njit
 import numpy as np
 from timeit import default_timer as timer
 
@@ -7,7 +7,7 @@ def cpufunction(matrix):
     for i in range(n):
         matrix[i] += np.tanh(np.sin(i * np.pi) * np.cos(i * np.pi))
 
-@jit(nopython=True)
+@njit
 def gpufunction(matrix):
     n = matrix.shape[0]
     for i in range(n):
