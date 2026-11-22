@@ -1,87 +1,61 @@
-import hashlib
-from cryptography.fernet import Fernet
+from pathlib import Path
+from cryptography.fernet import Fernet, InvalidToken
 
-# Generate a key for encryption
-key = Fernet.generate_key()
+def format_mb(size_bytes: int) -> str:
+    """Convert byte size to a human-readable megabyte string."""
+    return f"{size_bytes / (1024 * 1024):.2f} MB"
 
-def write_key(key, file_name):
-    with open(file_name, 'wb') as filekey:
-        filekey.write(key)
 
-write_key(key, 'key.txt')
-
-# Encrypting a file
-
-# Opening the key
-def load_key(file_name):
-    with open(file_name, 'rb') as filekey:
-        key = filekey.read()
+def generate_and_save_key(key_path: Path) -> bytes:
+    """Generate a Fernet key and save it to disk."""
+    key = Fernet.generate_key()
+    with key_path.open("wb") as key_file:
+        key_file.write(key)
     return key
 
-key = load_key('key.txt')
-print(key)
 
-# Using the generated key
-f = Fernet(key)
+def encrypt_file(source_path: Path, dest_path: Path, key: bytes) -> None:
+    """Encrypt a file using Fernet (includes built-in HMAC-SHA256 integrity)."""
+    fernet = Fernet(key)
+    original_data = source_path.read_bytes()
+    print(f"Original size: {format_mb(len(original_data))}")
 
-with open('Linux for Beginners.zip', 'rb') as original_file:
-    original = original_file.read()
+    encrypted_data = fernet.encrypt(original_data)
+    dest_path.write_bytes(encrypted_data)
+    print(f"Encrypted size: {format_mb(len(encrypted_data))}")
 
-length = len(original)
-print(f'Length of this bytes object is {round(length/1024/1024, 2)} megabytes.')
-original_sha256_checksum = hashlib.sha256(original).hexdigest()
-print(f'Calculate the SHA-256 checksum: {original_sha256_checksum}')
 
-def write_checksum(checksum, file_name):
-    with open(file_name, 'w') as filechecksum:
-        filechecksum.write(checksum)
+def decrypt_file(encrypted_path: Path, dest_path: Path, key: bytes) -> bool:
+    """Decrypt a Fernet-encrypted file and verify its integrity."""
+    fernet = Fernet(key)
+    encrypted_data = encrypted_path.read_bytes()
+    print(f"Encrypted file size: {format_mb(len(encrypted_data))}")
 
-write_checksum(original_sha256_checksum, 'original_checksum.txt')
+    try:
+        # Automatically verifies HMAC-SHA256; raises InvalidToken if tampered/corrupted
+        decrypted_data = fernet.decrypt(encrypted_data)
+    except InvalidToken:
+        print("Decryption failed: Invalid key or corrupted/tampered file.")
+        return False
 
-# To encrypt the string string must be encoded to byte string before encryption
-encrypted = f.encrypt(original)
+    dest_path.write_bytes(decrypted_data)
+    print(f"Decrypted size: {format_mb(len(decrypted_data))}")
+    return True
 
-length = len(encrypted)
-print(f'Length of this encrypted object is {round(length/1024/1024, 2)} megabytes.')
 
-# Writing the encrypted file
-with open ('Linux for Beginners.enc', 'wb') as encrypted_file:
-    encrypted_file.write(encrypted)
+if __name__ == "__main__":
+    key_file = Path("key.txt")
+    original_file = Path("Linux for Beginners.zip")
+    encrypted_file = Path("Linux for Beginners.enc")
+    decrypted_file = Path("Linux for Beginners enc.zip")
 
-# Decrypt the encrypted file
+    # 1. Generate and load key
+    generate_and_save_key(key_file)
+    secret_key = key_file.read_bytes()
 
-# Using the key
-key = load_key('key.txt')
-f = Fernet(key)
+    # 2. Encrypt
+    encrypt_file(original_file, encrypted_file, secret_key)
 
-# Opening the encrypted file
-with open('Linux for Beginners.enc', 'rb') as encrypted_file:
-    encrypted = encrypted_file.read()
-
-length = len(encrypted)
-print(f'Length of this encrypted file is {round(length/1024/1024, 2)} megabytes.')
-
-# Decrypting the file
-decrypted = f.decrypt(encrypted)
-
-length = len(decrypted)
-print(f'Length of this decrypted object is {round(length/1024/1024, 2)} megabytes.')
-returned_sha256_checksum = hashlib.sha256(decrypted).hexdigest()
-print(f'Calculate the SHA-256 checksum: {returned_sha256_checksum}')
-
-def load_checksum(file_name):
-    with open(file_name, 'r') as filechecksum:
-        checksum = filechecksum.read()
-    return checksum
-
-original_sha256_checksum = load_checksum('original_checksum.txt')
-
-# Compare and verify SHA-256 checksum
-if original_sha256_checksum == returned_sha256_checksum:
-    print("SHA-256 checksum verified.")
-
-    with open('Linux for Beginners enc.zip', 'wb') as decrypted_file:
-        decrypted_file.write(decrypted)
-
-else:
-    print("SHA-256 checksum verification failed.")
+    # 3. Decrypt & verify integrity
+    if decrypt_file(encrypted_file, decrypted_file, secret_key):
+        print("File decrypted and integrity verified.")
